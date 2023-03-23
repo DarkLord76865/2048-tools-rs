@@ -3,7 +3,7 @@ A Rust crate that provides the core logic of the popular game 2048, along with a
 
 ---
 
-[**Documentation**](https://docs.rs/tools-2048/latest/tools-2048/ "docs.rs")
+[**Documentation**](https://docs.rs/tools-2048/latest/tools_2048/ "docs.rs")
 
 [**Crate**](https://crates.io/crates/tools-2048 "crates.io")
 
