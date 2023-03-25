@@ -61,6 +61,19 @@ impl Game2048 {
         self.moves.is_empty()
     }
 
+    pub fn is_game_won(&self) -> bool {
+        //! Returns true if the game is won.
+
+        for row in &self.board {
+            for &tile in row {
+                if tile == 2048 {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     pub fn make_move(&mut self, direction: usize) -> usize {  // 0: success, 1: game over, 2: invalid move
         //! Makes a move in the game.
         //! Returns ```0``` if the move was successful, ```1``` if the move was successful and now the game is over, and ```2``` if the move was invalid.

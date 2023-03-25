@@ -23,6 +23,7 @@ game.make_move(game.find_best_move(10_000));
 
 assert!(game.score > 0);  // the score should be greater than 0
 assert!(!game.is_game_over());  // the game should not be over yet
+assert!(!game.is_game_won());  // the game should not be won yet
 ```
 
 The AI is based on the [Monte Carlo algorithm](https://en.wikipedia.org/wiki/Monte_Carlo_algorithm), and uses parallelism to speed up the process. At depth of 10 000, AI achieves 1024 tile 100% of the time, 2048 tile 96% of the time, and 4096 tile 65% of the time.
