@@ -1,5 +1,6 @@
 # tools-2048-rs
 A Rust crate that provides the core logic of the popular game 2048, along with a basic AI to play the game.
+Arbitrary board sizes are supported, but the default, recommended one is 4x4.
 
 ---
 
@@ -11,15 +12,20 @@ A Rust crate that provides the core logic of the popular game 2048, along with a
 ```rust
 use tools_2048::Game2048;
 
-let mut game: Game2048 = Game2048::new();  // create a new game
+// create a new game
+let mut game: Game2048 = Game2048::new();
 
 // make 10 moves
 for _ in 0..10 {
-    game.make_move(game.moves[0]);
+    // pick first valid move
+    let random_move = *game.moves.iter().find(|&x| *x.1).unwrap().0;
+
+    // make the move
+    game.make_move(random_move).unwrap();
 }
 
 // make a move based on the AI's best move
-game.make_move(game.find_best_move(10_000));
+game.make_move(game.find_best_move(10_000)).unwrap();
 
 assert!(game.score > 0);  // the score should be greater than 0
 assert!(!game.is_game_over());  // the game should not be over yet
