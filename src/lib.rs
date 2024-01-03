@@ -6,16 +6,16 @@
 //! use tools_2048::{Game, GameMove, GameState, GameResult};
 //!
 //! // create a new game
-//! let mut game = Game::new(4);
+//! let mut game = Game::new(4).unwrap();
 //!
 //! // make a move
-//! game.make_move(GameMove::Left).unwrap();
-//! game.make_move(GameMove::Right).unwrap();
-//! game.make_move(GameMove::Up).unwrap();
-//! game.make_move(GameMove::Down).unwrap();
+//! game.make_move(GameMove::Left);
+//! game.make_move(GameMove::Right);
+//! game.make_move(GameMove::Up);
+//! game.make_move(GameMove::Down);
 //!
 //! // find the best move and make it
-//! game.make_move(game.find_best_move(10_000)).unwrap();
+//! game.make_move(game.find_best_move(10_000).unwrap());
 //!
 //! assert_eq!(game.state(), GameState::InProgress);  // the game should still be in progress
 //! assert_eq!(game.result(), GameResult::Pending);  // the result shouldn't be decided yet
