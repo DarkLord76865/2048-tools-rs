@@ -7,10 +7,8 @@ use std::fmt::{self, Display, Formatter, Write};
 use std::sync::{Arc, Mutex};
 
 // external imports
-use rand::Rng;
-use rand::rngs::ThreadRng;
+use rand::{random, thread_rng};
 use rand::seq::IteratorRandom;
-use rand::thread_rng;
 use tinypool::ThreadPool;
 
 // internal imports
@@ -96,8 +94,6 @@ pub struct Game {
     state: GameState,
     /// The result of the game.
     result: GameResult,
-    /// Internal rng thread. Used for generating new tiles.
-    rng_thread: ThreadRng,
 }
 impl Game {
     /// Creates a new game of 2048.
@@ -125,7 +121,6 @@ impl Game {
         ];
         let state = GameState::InProgress;
         let result = GameResult::Pending;
-        let rng_thread = thread_rng();
 
         let mut object: Self = Self {
             board,
@@ -135,7 +130,6 @@ impl Game {
             moves_next,
             state,
             result,
-            rng_thread,
         };
 
         object.new_tile();
@@ -193,7 +187,6 @@ impl Game {
         ];
         let state = GameState::InProgress;
         let result = GameResult::Pending;
-        let rng_thread = thread_rng();
 
         let mut object = Self {
             board,
@@ -203,7 +196,6 @@ impl Game {
             moves_next,
             state,
             result,
-            rng_thread,
         };
         object.update();
 
@@ -282,11 +274,11 @@ impl Game {
             .flat_map(|ind1|
                 (0..size).map(move |ind2| (ind1, ind2)))
             .filter(|&pos| self.board[pos.0][pos.1] == 0)
-            .choose(&mut self.rng_thread)
+            .choose(&mut thread_rng())
             .unwrap();
 
         // add 2 or 4 to that tile
-        self.board[loc.0][loc.1] = if self.rng_thread.gen::<f64>() < 0.9 {2} else {4};
+        self.board[loc.0][loc.1] = if random::<f64>() < 0.9 {2} else {4};
     }
 
     /// Update moves, moves_next, score_next, state and result.
@@ -453,14 +445,13 @@ impl Game {
                         let moves_values = Arc::clone(&moves_values);
                         thread_pool.add_to_queue(move || {
                             let mut thread_score = 0;
-                            let mut thread_rng = thread_rng();
 
                             for _ in 0..depth_per_thread {
                                 let mut work_game = Self::from_existing(&board_copy).unwrap();
 
                                 work_game.make_move(move_type);
                                 while let GameState::InProgress = work_game.state {
-                                    if work_game.make_move(work_game.moves.iter().enumerate().filter_map(|(i, &b)| if b {Some(GameMove::from_index(i))} else {None}).choose(&mut thread_rng).unwrap()) && work_game.state == GameState::GameOver {break;}
+                                    if work_game.make_move(work_game.moves.iter().enumerate().filter_map(|(i, &b)| if b {Some(GameMove::from_index(i))} else {None}).choose(&mut thread_rng()).unwrap()) && work_game.state == GameState::GameOver {break;}
                                 }
 
                                 thread_score += work_game.score;
