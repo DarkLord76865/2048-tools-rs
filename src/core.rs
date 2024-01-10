@@ -141,6 +141,7 @@ impl Game {
     /// Creates a game of 2048 from an existing board.
     /// # Arguments
     /// * ```board```: The board to use.
+    /// * ```score```: The score of the game.
     /// # Returns
     /// * ```Ok(Game)```: The game was created successfully.
     /// * ```Err(Error)```: The game was not created successfully.
@@ -148,7 +149,7 @@ impl Game {
     /// * ```Error::InvalidSize```: The size of the board is invalid. Must be at least 4.
     /// * ```Error::InvalidBoard```: The board is invalid. Must be quadratic.
     /// * ```Error::InvalidValue```: The board contains invalid values. Must be 0 or powers of 2 (except 1).
-    pub fn from_existing(board: &[Vec<u64>]) -> Result<Self, Error> {
+    pub fn from_existing(board: &[Vec<u64>], score: u64) -> Result<Self, Error> {
         let n = board.len();
         if n < 4 {
             return Err(Error::InvalidSize);
@@ -176,7 +177,6 @@ impl Game {
         }
 
         let board = board.to_vec();
-        let score = 0;
         let score_next = [0; 4];
         let moves = [true; 4];
         let moves_next = [
@@ -447,7 +447,7 @@ impl Game {
                             let mut thread_score = 0;
 
                             for _ in 0..depth_per_thread {
-                                let mut work_game = Self::from_existing(&board_copy).unwrap();
+                                let mut work_game = Self::from_existing(&board_copy, 0).unwrap();
 
                                 work_game.make_move(move_type);
                                 while let GameState::InProgress = work_game.state {
@@ -524,7 +524,7 @@ mod tests {
 
         let game = Game::new(4).unwrap();
         let game_default = Game::default();
-        let game_from = Game::from_existing(game.board()).unwrap();
+        let game_from = Game::from_existing(game.board(), 0).unwrap();
 
         assert_eq!(game.size(), 4);
         assert_eq!(game_default.size(), 4);
@@ -548,7 +548,7 @@ mod tests {
         //! Test the creation of a new game with a bigger size (5x5)
 
         let game = Game::new(5).unwrap();
-        let game_from = Game::from_existing(game.board()).unwrap();
+        let game_from = Game::from_existing(game.board(), 0).unwrap();
 
         assert_eq!(game.size(), 5);
         assert_eq!(game_from.size(), 5);
