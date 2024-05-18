@@ -1,6 +1,6 @@
 [package]
 name = "tools-2048"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Antonio Mamić <antoniomamic007@gmail.com>"]
 edition = "2021"
 description = "A Rust crate that provides the core logic of the popular game 2048, along with a basic AI to play the game."
@@ -16,11 +16,9 @@ include = [
     "LICENSE.md"
 ]
 
-
 [dependencies]
 rand = "0.8.5"
 tinypool = "0.2.0"
-
 
 [profile.test]
 opt-level = 3
