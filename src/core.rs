@@ -1,20 +1,16 @@
 //! A module that contains the logic for the 2048 game.
 
-
-
 // std imports
 use std::fmt::{self, Display, Formatter, Write};
 use std::sync::{Arc, Mutex};
 
 // external imports
-use rand::{random, thread_rng};
 use rand::seq::IteratorRandom;
+use rand::{random, thread_rng};
 use tinypool::ThreadPool;
 
 // internal imports
-use super::error::Error;
-
-
+use crate::error::Error;
 
 /// An enum that represents the moves that can be made in the game of 2048.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -31,10 +27,10 @@ impl GameMove {
     /// * ```usize``` - The index of the move.
     fn index(&self) -> usize {
         match self {
-            GameMove::Left => 0,
-            GameMove::Right => 1,
-            GameMove::Up => 2,
-            GameMove::Down => 3,
+            Self::Left => 0,
+            Self::Right => 1,
+            Self::Up => 2,
+            Self::Down => 3,
         }
     }
 
@@ -46,10 +42,10 @@ impl GameMove {
     /// * ```GameMove``` - The move.
     fn from_index(index: usize) -> Self {
         match index {
-            0 => GameMove::Left,
-            1 => GameMove::Right,
-            2 => GameMove::Up,
-            3 => GameMove::Down,
+            0 => Self::Left,
+            1 => Self::Right,
+            2 => Self::Up,
+            3 => Self::Down,
             _ => panic!("Invalid index: {}", index),
         }
     }
@@ -75,13 +71,11 @@ pub enum GameResult {
     Loss,
 }
 
-
-
 #[derive(Debug)]
 /// A struct that represents the 2048 game.
-pub struct Game {
-    /// Game tiles. Contains 0 for empty tiles and powers of 2 for tiles with values.
-    board: Vec<Vec<u64>>,
+pub struct Game<const SIZE: usize> {
+    /// Game tiles.
+    board: [[u64; SIZE]; SIZE],
     /// Game score.
     score: u64,
     /// Additional score for each move.
@@ -89,40 +83,33 @@ pub struct Game {
     /// Availability of moves.
     moves: [bool; 4],
     /// Board after each of the moves.
-    moves_next: [Vec<Vec<u64>>; 4],
+    moves_next: [[[u64; SIZE]; SIZE]; 4],
     /// The state of the game.
     state: GameState,
     /// The result of the game.
     result: GameResult,
 }
-impl Game {
+impl<const SIZE: usize> Game<SIZE> {
     /// Creates a new game of 2048.
-    /// # Arguments
-    /// * ```n```: The size of the board (```n```x```n```). Must be at least 4.
     /// # Returns
     /// * ```Ok(Game)```: The game was created successfully.
     /// * ```Err(Error)```: The game was not created successfully.
     /// # Errors
-    /// * ```Error::InvalidSize```: The size of the board is invalid (less than 4).
-    pub fn new(size: usize) -> Result<Self, Error> {
-        if size < 4 {
+    /// * ```Error::InvalidSize```: The SIZE is invalid. Must be at least 4.
+    pub fn new() -> Result<Self, Error> {
+        if SIZE < 4 {
             return Err(Error::InvalidSize);
         }
 
-        let board = vec![vec![0; size]; size];
+        let board = [[0; SIZE]; SIZE];
         let score = 0;
         let score_next = [0; 4];
         let moves = [true; 4];
-        let moves_next = [
-            vec![vec![0; size]; size],
-            vec![vec![0; size]; size],
-            vec![vec![0; size]; size],
-            vec![vec![0; size]; size],
-        ];
+        let moves_next = [[[0; SIZE]; SIZE]; 4];
         let state = GameState::InProgress;
         let result = GameResult::Pending;
 
-        let mut object: Self = Self {
+        let mut game_object: Self = Self {
             board,
             score,
             score_next,
@@ -132,13 +119,14 @@ impl Game {
             result,
         };
 
-        object.new_tile();
-        object.update();
+        game_object.new_tile();
+        game_object.update();
 
-        Ok(object)
+        Ok(game_object)
     }
 
     /// Creates a game of 2048 from an existing board.
+    /// The board must be a square matrix filled with 0 for empty tiles and powers of 2 for filled tiles.
     /// # Arguments
     /// * ```board```: The board to use.
     /// * ```score```: The score of the game.
@@ -146,49 +134,29 @@ impl Game {
     /// * ```Ok(Game)```: The game was created successfully.
     /// * ```Err(Error)```: The game was not created successfully.
     /// # Errors
-    /// * ```Error::InvalidSize```: The size of the board is invalid. Must be at least 4.
-    /// * ```Error::InvalidBoard```: The board is invalid. Must be quadratic.
-    /// * ```Error::InvalidValue```: The board contains invalid values. Must be 0 or powers of 2 (except 1).
-    pub fn from_existing(board: &[Vec<u64>], score: u64) -> Result<Self, Error> {
-        let n = board.len();
-        if n < 4 {
+    /// * ```Error::InvalidSize```: The SIZE is invalid. Must be at least 4.
+    /// * ```Error::InvalidValue```: The board contains invalid value. Must be 0 or a power of 2, starting from 2.
+    pub fn from_existing(board: &[[u64; SIZE]; SIZE], score: u64) -> Result<Self, Error> {
+        if SIZE < 4 {
             return Err(Error::InvalidSize);
         }
 
-        for row in board {
-            if row.len() != n {
-                return Err(Error::InvalidBoard);
-            }
-        }
-
-        for row in board {
-            for cell in row {
-                match *cell {
-                    0 => {},
-                    1 => return Err(Error::InvalidValue),
-                    2.. => {
-                        let calculated_cell = 2_u64.pow((*cell).ilog2());
-                        if calculated_cell != *cell {
-                            return Err(Error::InvalidValue);
-                        }
-                    },
+        for row in board.iter() {
+            for tile in row.iter() {
+                if *tile == 1 || (*tile != 0 && !tile.is_power_of_two()) {
+                    return Err(Error::InvalidValue);
                 }
             }
         }
 
-        let board = board.to_vec();
+        let board = *board;
         let score_next = [0; 4];
         let moves = [true; 4];
-        let moves_next = [
-            vec![vec![0; n]; n],
-            vec![vec![0; n]; n],
-            vec![vec![0; n]; n],
-            vec![vec![0; n]; n],
-        ];
+        let moves_next = [[[0; SIZE]; SIZE]; 4];
         let state = GameState::InProgress;
         let result = GameResult::Pending;
 
-        let mut object = Self {
+        let mut game_object = Self {
             board,
             score,
             score_next,
@@ -197,15 +165,16 @@ impl Game {
             state,
             result,
         };
-        object.update();
+        game_object.update();
 
-        Ok(object)
+        Ok(game_object)
     }
 
     /// Returns the reference to the board.
+    /// The board is a square matrix filled with 0 for empty tiles and powers of 2 for filled tiles.
     /// # Returns
-    /// * ```&Vec<Vec<u64>>```: The reference to the board.
-    pub fn board(&self) -> &Vec<Vec<u64>> {
+    /// * ```&[[u64; SIZE]; SIZE]```: The board.
+    pub fn board(&self) -> &[[u64; SIZE]; SIZE] {
         &self.board
     }
 
@@ -229,7 +198,7 @@ impl Game {
     /// # Returns
     /// * ```usize```: The size of the board. The board is ```usize```x```usize```.
     pub fn size(&self) -> usize {
-        self.board.len()
+        SIZE
     }
 
     /// Returns the state of the game.
@@ -249,11 +218,7 @@ impl Game {
     pub fn make_move(&mut self, direction: GameMove) -> bool {
         let next_ind = direction.index();
         if self.moves[next_ind] {
-            for i in 0..self.moves_next[next_ind].len() {
-                for j in 0..self.moves_next[next_ind][i].len() {
-                    self.board[i][j] = self.moves_next[next_ind][i][j];
-                }
-            }
+            self.board = self.moves_next[next_ind];
             self.score += self.score_next[next_ind];
             self.new_tile();
             self.update();
@@ -265,20 +230,17 @@ impl Game {
 
     /// Add a new tile to the board.
     fn new_tile(&mut self) {
-        let size = self.size();  // size of the board
-
         // create iterator over all tiles (cartesian product of two ranges)
         // filter only empty tiles -> get iterator over empty tiles
         // choose one of the empty tiles with rng
-        let loc = (0..size)
-            .flat_map(|ind1|
-                (0..size).map(move |ind2| (ind1, ind2)))
+        let loc = (0..SIZE)
+            .flat_map(|ind1| (0..SIZE).map(move |ind2| (ind1, ind2)))
             .filter(|&pos| self.board[pos.0][pos.1] == 0)
             .choose(&mut thread_rng())
             .unwrap();
 
         // add 2 or 4 to that tile
-        self.board[loc.0][loc.1] = if random::<f64>() < 0.9 {2} else {4};
+        self.board[loc.0][loc.1] = if random::<f64>() < 0.9 { 2 } else { 4 };
     }
 
     /// Update moves, moves_next, score_next, state and result.
@@ -308,7 +270,7 @@ impl Game {
         // update right
         self.score_next[1] = 0;
         for (i, row) in self.board.iter().enumerate() {
-            let mut j = row.len() - 1;
+            let mut j = SIZE - 1;
             let mut merge = false;
             let mut negative_index = false;
             for elem in row.iter().filter(|&&x| x != 0).rev() {
@@ -320,16 +282,17 @@ impl Game {
                     self.moves_next[1][i][j] = *elem;
                     j = match j.checked_sub(1) {
                         Some(x) => x,
-                        None => {  // we processed whole row, we can safely break
+                        None => {
+                            // we processed the whole row, we can safely break
                             negative_index = true;
                             break;
-                        },
+                        }
                     };
                     merge = true;
                 }
             }
             if !negative_index {
-                for empty_elem in self.moves_next[1][i].iter_mut().rev().skip(row.len() - 1 - j) {
+                for empty_elem in self.moves_next[1][i].iter_mut().rev().skip(SIZE - 1 - j) {
                     *empty_elem = 0;
                 }
             }
@@ -338,7 +301,7 @@ impl Game {
 
         // update up
         self.score_next[2] = 0;
-        for col in 0..self.board[0].len() {
+        for col in 0..SIZE {
             let mut i = 0;
             let mut merge = false;
             for elem in self.board.iter().map(|row| row[col]).filter(|&x| x != 0) {
@@ -360,8 +323,8 @@ impl Game {
 
         // update down
         self.score_next[3] = 0;
-        for col in 0..self.board[0].len() {
-            let mut i = self.board.len() - 1;
+        for col in 0..SIZE {
+            let mut i = SIZE - 1;
             let mut merge = false;
             let mut negative_index = false;
             for elem in self.board.iter().map(|row| row[col]).filter(|&x| x != 0).rev() {
@@ -373,16 +336,17 @@ impl Game {
                     self.moves_next[3][i][col] = elem;
                     i = match i.checked_sub(1) {
                         Some(x) => x,
-                        None => {  // we processed whole column, we can safely break
+                        None => {
+                            // we processed whole column, we can safely break
                             negative_index = true;
                             break;
-                        },
+                        }
                     };
                     merge = true;
                 }
             }
             if !negative_index {
-                for empty_elem in self.moves_next[3].iter_mut().rev().skip(self.board.len() - 1 - i).map(|row| &mut row[col]) {
+                for empty_elem in self.moves_next[3].iter_mut().rev().skip(SIZE - 1 - i).map(|row| &mut row[col]) {
                     *empty_elem = 0;
                 }
             }
@@ -403,9 +367,9 @@ impl Game {
                 } else if self.state == GameState::GameOver {
                     self.result = GameResult::Loss;
                 }
-            },
-            GameResult::Victory => {},
-            GameResult::Loss => {},
+            }
+            GameResult::Victory => {}
+            GameResult::Loss => {}
         }
     }
 
@@ -437,11 +401,11 @@ impl Game {
 
                 let moves_values = Arc::new(Mutex::new([0; 4]));
 
-                for move_ind in self.moves.iter().enumerate().filter_map(|(ind, &x)| if x {Some(ind)} else {None}) {
+                for move_ind in self.moves.iter().enumerate().filter_map(|(ind, &x)| if x { Some(ind) } else { None }) {
                     let move_type = GameMove::from_index(move_ind);
 
                     for _ in 0..thread_pool.size() {
-                        let board_copy = self.board.clone();
+                        let board_copy = self.board;
                         let moves_values = Arc::clone(&moves_values);
                         thread_pool.add_to_queue(move || {
                             let mut thread_score = 0;
@@ -451,7 +415,18 @@ impl Game {
 
                                 work_game.make_move(move_type);
                                 while let GameState::InProgress = work_game.state {
-                                    if work_game.make_move(work_game.moves.iter().enumerate().filter_map(|(i, &b)| if b {Some(GameMove::from_index(i))} else {None}).choose(&mut thread_rng()).unwrap()) && work_game.state == GameState::GameOver {break;}
+                                    if work_game.make_move(
+                                        work_game
+                                            .moves
+                                            .iter()
+                                            .enumerate()
+                                            .filter_map(|(i, &b)| if b { Some(GameMove::from_index(i)) } else { None })
+                                            .choose(&mut thread_rng())
+                                            .unwrap(),
+                                    ) && work_game.state == GameState::GameOver
+                                    {
+                                        break;
+                                    }
                                 }
 
                                 thread_score += work_game.score;
@@ -466,16 +441,11 @@ impl Game {
                 let max_ind = moves_values.lock().unwrap().iter().enumerate().max_by_key(|(_, &x)| x).unwrap().0;
 
                 Ok(GameMove::from_index(max_ind))
-            },
+            }
         }
     }
 }
-impl Default for Game {
-    fn default() -> Self {
-        Self::new(4).unwrap()
-    }
-}
-impl Display for Game {
+impl<const SIZE: usize> Display for Game<SIZE> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // find the maximum value in the board
         let mut max_val = 0;
@@ -496,7 +466,7 @@ impl Display for Game {
             max_len += 1;
             max_val /= 10;
         }
-        max_len += 1;  // add one space
+        max_len += 1; // add one space
 
         // create the output string
         let mut output = String::from("Board:\n");
@@ -512,8 +482,6 @@ impl Display for Game {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,24 +490,19 @@ mod tests {
     fn create_game_4() {
         //! Test the creation of a new game with the default size (4x4)
 
-        let game = Game::new(4).unwrap();
-        let game_default = Game::default();
+        let game: Game<4> = Game::new().unwrap();
         let game_from = Game::from_existing(game.board(), 0).unwrap();
 
         assert_eq!(game.size(), 4);
-        assert_eq!(game_default.size(), 4);
         assert_eq!(game_from.size(), 4);
 
         assert_eq!(game.score(), 0);
-        assert_eq!(game_default.score(), 0);
         assert_eq!(game_from.score(), 0);
 
         assert_eq!(game.state(), GameState::InProgress);
-        assert_eq!(game_default.state(), GameState::InProgress);
         assert_eq!(game_from.state(), GameState::InProgress);
 
         assert_eq!(game.result(), GameResult::Pending);
-        assert_eq!(game_default.result(), GameResult::Pending);
         assert_eq!(game_from.result(), GameResult::Pending);
     }
 
@@ -547,7 +510,7 @@ mod tests {
     fn create_game_5() {
         //! Test the creation of a new game with a bigger size (5x5)
 
-        let game = Game::new(5).unwrap();
+        let game: Game<5> = Game::new().unwrap();
         let game_from = Game::from_existing(game.board(), 0).unwrap();
 
         assert_eq!(game.size(), 5);
@@ -567,7 +530,7 @@ mod tests {
     fn game_4_ai() {
         //! Test the AI's ability to play a game with the default size (4x4)
 
-        let mut game = Game::new(4).unwrap();
+        let mut game: Game<4> = Game::new().unwrap();
         while let Ok(best_move) = game.find_best_move(1_000) {
             game.make_move(best_move);
         }
@@ -580,7 +543,7 @@ mod tests {
     fn game_5_ai() {
         //! Test the AI's ability to play a big game
 
-        let mut game = Game::new(5).unwrap();
+        let mut game: Game<5> = Game::new().unwrap();
         while let Ok(best_move) = game.find_best_move(1_000) {
             game.make_move(best_move);
         }

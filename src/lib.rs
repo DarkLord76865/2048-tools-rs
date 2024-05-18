@@ -5,8 +5,8 @@
 //! ```rust
 //! use tools_2048::{Game, GameMove, GameState, GameResult};
 //!
-//! // create a new game
-//! let mut game = Game::new(4).unwrap();
+//! // create a new game with a 4x4 board
+//! let mut game: Game<4> = Game::new().unwrap();
 //!
 //! // make a move
 //! game.make_move(GameMove::Left);
@@ -20,7 +20,6 @@
 //! assert_eq!(game.state(), GameState::InProgress);  // the game should still be in progress
 //! assert_eq!(game.result(), GameResult::Pending);  // the result shouldn't be decided yet
 //! ```
-
 
 pub mod core;
 pub mod error;
