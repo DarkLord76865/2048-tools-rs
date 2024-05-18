@@ -13,7 +13,7 @@ Arbitrary board sizes are supported with the minimum being 4x4.
 use tools_2048::{Game, GameMove, GameState, GameResult};
 
 // create a new game
-let mut game = Game::new(4).unwrap();
+let mut game: Game<4> = Game::new().unwrap();
 
 // make a move
 game.make_move(GameMove::Left);
